@@ -7,4 +7,4 @@ This shows a basic example of the ESP-Display development board.
 Remember to give permissions to the USB serial port
 ```sudo chmod 666 /dev/ttyUSB0```
 
-For more information [](https://maykolrey.com)
+[For more information](https://maykolrey.com/descargas/esp-display)
