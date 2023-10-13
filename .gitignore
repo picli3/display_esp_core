@@ -1,0 +1,4 @@
+*.old
+build/
+*.lock
+managed_components/
