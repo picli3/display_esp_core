@@ -24,6 +24,7 @@
 
 #include "driver/gpio.h"
 #include "driver/i2s_std.h"
+#include "driver/pulse_cnt.h"
 
 #include "esp_dsp.h"
 
@@ -57,6 +58,18 @@ static int voltage[2][10];
 static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
 void adc_task(void *pvParameters);
 
+// Encoder Rotary
+#define EC11_GPIO_A 34
+#define EC11_GPIO_B 35
+#define EC11_SELECT 12
+#define PCNT_HIGH_LIMIT 100
+#define PCNT_LOW_LIMIT  -1
+int opcion=0;
+pcnt_unit_handle_t pcnt_unit = NULL;
+void pcnt_init_task(void *pvParameters);
+
+
+
 esp_err_t mountSPIFFS(char * path, char * label, int max_files);
 static void listSPIFFS(char * path);
 void paint_task(void *pvParameters);
@@ -83,6 +96,7 @@ void app_main(void){
 	listSPIFFS("/images/");
 	xTaskCreate(adc_task, "BATT_STATUS", 1024, NULL, 1, NULL);
 	xTaskCreate(paint_task, "ILI9341", 1024*8, NULL, 2, NULL);
+	xTaskCreate(pcnt_init_task, "Encoder", 1024*4, NULL, 5, NULL);
 }
 
 esp_err_t mountSPIFFS(char * path, char * label, int max_files) {
@@ -158,6 +172,48 @@ void adc_task(void *pvParameters){
 
 }
 
+void pcnt_init_task(void *pvParameters){
+	pcnt_unit_config_t unit_config = {
+        .high_limit = PCNT_HIGH_LIMIT,
+        .low_limit = PCNT_LOW_LIMIT,
+    };
+
+    ESP_ERROR_CHECK(pcnt_new_unit(&unit_config, &pcnt_unit));
+
+    pcnt_glitch_filter_config_t filter_config = {
+	        .max_glitch_ns = 1000,
+    };
+    ESP_ERROR_CHECK(pcnt_unit_set_glitch_filter(pcnt_unit, &filter_config));
+
+    pcnt_chan_config_t chan_a_config = {
+        .edge_gpio_num = EC11_GPIO_A,
+        .level_gpio_num = EC11_GPIO_B,
+    };
+    pcnt_channel_handle_t pcnt_chan_a = NULL;
+    ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_a_config, &pcnt_chan_a));
+    
+    pcnt_chan_config_t chan_b_config = {
+        .edge_gpio_num = EC11_GPIO_B,
+        .level_gpio_num = EC11_GPIO_A,
+    };
+    pcnt_channel_handle_t pcnt_chan_b = NULL;
+    ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_b_config, &pcnt_chan_b));
+
+    ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE));
+    ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
+    ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE));
+    ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
+
+    ESP_ERROR_CHECK(pcnt_unit_enable(pcnt_unit));
+    ESP_ERROR_CHECK(pcnt_unit_clear_count(pcnt_unit));
+    ESP_ERROR_CHECK(pcnt_unit_start(pcnt_unit));
+
+    while (1) {
+        ESP_ERROR_CHECK(pcnt_unit_get_count(pcnt_unit, &opcion));
+        vTaskDelay(1);
+    }
+}
+
 void paint_task(void *pvParameters){
 	FontxFile fx16G[2];
 	FontxFile fx24G[2];
@@ -208,7 +264,7 @@ void paint_task(void *pvParameters){
 		}
 		for (int i = 0; i < BUFF_SIZE; ++i)
 		{
-			signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+up)/SAMPLE_RATE);
+			signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
 		}
 		for (int i = 1; i < BUFF_SIZE; ++i)
 		{
