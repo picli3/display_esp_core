@@ -258,14 +258,29 @@ void paint_task(void *pvParameters){
 		if (gpio_get_level(BACK)==0)
 		{
 			lcdFillScreen(&dev, BLACK);
-			lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"BOTON ATRAS", WHITE);
-			up+=50;
-		
+			lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"Cambiando señal", WHITE);
+			
+			if (up==0)
+			{
+				up=1;
+			}else{
+				up=0;
+			}
 		}
-		for (int i = 0; i < BUFF_SIZE; ++i)
+
+		if (up==1)
 		{
-			signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
+			for (int i = 0; i < BUFF_SIZE; ++i)
+			{
+				signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
+			}
+		}else{
+			for (int i = 0; i < BUFF_SIZE; i++) {
+        		signal_test[i] = 110+70*cos(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
+    		}
 		}
+
+
 		for (int i = 1; i < BUFF_SIZE; ++i)
 		{
 			lcdDrawLine(&dev, signal_test[i-1],i-1, signal_test[i], i, CYAN);
