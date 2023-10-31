@@ -69,6 +69,9 @@ pcnt_unit_handle_t pcnt_unit = NULL;
 void pcnt_init_task(void *pvParameters);
 
 
+void draw_grid(TFT_t * dev);
+
+
 
 esp_err_t mountSPIFFS(char * path, char * label, int max_files);
 static void listSPIFFS(char * path);
@@ -247,8 +250,9 @@ void paint_task(void *pvParameters){
 
 
 	while(1){
-
+		
 		lcdFillScreen(&dev, BLACK);
+		draw_grid(&dev);
        	lcdDrawFillRect(&dev, 220, 0, 240, 320, GRAY);
 
    		sprintf((char *)ascii, "batt:%.2f%%", (float)(voltage[0][0]/500.0)*(100/3.7));
@@ -343,4 +347,23 @@ static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel,
     }
 
     return calibrated;
+}
+void draw_grid(TFT_t * dev) {
+
+  for (int i = 0; i < 28; i++) {
+ 
+  	lcdDrawPixel(dev, i * 10, 40, WHITE);
+    lcdDrawPixel(dev, i * 10, 80, WHITE);
+    lcdDrawPixel(dev, i * 10, 120, WHITE);
+    lcdDrawPixel(dev, i * 10, 160, WHITE);
+    lcdDrawPixel(dev, i * 10, 200, WHITE);
+    lcdDrawPixel(dev, i * 10, 240, WHITE);
+    lcdDrawPixel(dev, i * 10, 280, WHITE);
+
+  }
+  for (int i = 0; i < 320; i += 10) {
+    for (int j = 0; j < 240; j += 40) {
+    	lcdDrawPixel(dev, j, i, WHITE);
+    }
+  }
 }
