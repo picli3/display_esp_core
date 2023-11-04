@@ -416,17 +416,17 @@ void menu_handler(){
   if (menu == true){ 
   	if (set_value){
   		switch(opt){
-  			case 1:
+  			case 0:
   				ESP_LOGE(TAG,"SetOpcion 1");
   				valor2=opt_value;
   			break;
-  			case 2:
+  			case 1:
   				ESP_LOGE(TAG,"SetOpcion 2");
   			break;
-  			case 3:
+  			case 2:
   				ESP_LOGE(TAG,"SetOpcion 3");
   			break;
-  			case 4:
+  			case 3:
   				ESP_LOGE(TAG,"SetOpcion 4");
   			break;
   			default:
@@ -449,19 +449,19 @@ void menu_handler(){
   		}
   		if (btnok == 0){
   			switch(opt){
-  			case 1:
+  			case 0:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 1");
   			break;
-  			case 2:
+  			case 1:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 2");
   			break;
-  			case 3:
+  			case 2:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 3");
   			break;
-  			case 4:
+  			case 3:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 4");
   			break;
@@ -506,7 +506,7 @@ void update_screen(TFT_t * dev,FontxFile *fx){
 	uint8_t ascii[20];
 	if (menu && set_value == false){
 		lcdFillScreen(dev, BLACK);
-		lcdDrawRect(dev, 200-opt*30, 10, 225-opt*30, 300, YELLOW);
+		lcdDrawRect(dev, 170-opt*30, 10, 195-opt*30, 300, YELLOW);
 		lcdDrawString(dev, fx, 200, 12, (uint8_t *)"   CONFIGURACIONES", WHITE);
 		lcdDrawString(dev, fx, 170, 12, (uint8_t *)"1. Agregar R", WHITE);
 		lcdDrawString(dev, fx, 140, 12, (uint8_t *)"2. Agregar diametro", WHITE);
@@ -515,24 +515,24 @@ void update_screen(TFT_t * dev,FontxFile *fx){
 	}
 		if (set_value){
 			switch(opt){
-				case 1:
+				case 0:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 1", WHITE);
 					sprintf((char *)ascii, "value: %d", valor2);
 					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
 				break;
-				case 2:
+				case 1:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 2", WHITE);
 					sprintf((char *)ascii, "value: %d", opt);
 					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
 
 				break;
-				case 3:
+				case 2:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 3", WHITE);
 				break;
-				case 4:
+				case 3:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 4", WHITE);
 				break;
