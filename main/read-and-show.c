@@ -103,7 +103,7 @@ enum Option {
   Cursor1,
   Cursor2
 };
-uint8_t opt = Autoscale;
+uint8_t opt = None;
 uint8_t opt_value = None;
 void update_screen(TFT_t * dev,FontxFile *fx);
 
@@ -278,17 +278,12 @@ void paint_task(void *pvParameters){
 	lcdFillScreen(&dev, BLACK);
 	lcdSetFontDirection(&dev, 1);
 	lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"TEST GRAPH", WHITE);
-
+	gpio_set_direction(BACK, GPIO_MODE_INPUT); //corregir esto para no configurarlo por cada ciclo
+	gpio_set_direction(EC11_SELECT, GPIO_MODE_INPUT);
 
 
 	while(1){
 		menu_handler();
-		if (set_value){
-			opt_value = opcion/4;
-		}else{
-			opt=opcion/4;
-		}
-
 		//ESP_LOGW(TAG,"opcion: %d", opt);
 		if (new_data || menu_action) {
       		new_data = false;
@@ -394,18 +389,21 @@ void draw_sin(TFT_t * dev){
 
 void batt_status(TFT_t * dev, FontxFile *fx){
 	uint8_t ascii[20];
-	
 	lcdDrawFillRect(dev, 220, 0, 240, 320, GRAY);
 	sprintf((char *)ascii, "batt:%.2f%%", (float)(voltage[0][0]/500.0)*(100/3.7));
 	lcdDrawString(dev, fx, 220, 10, ascii, WHITE);
 }
 
 void menu_handler(){
-	gpio_set_direction(BACK, GPIO_MODE_INPUT); //corregir esto para no configurarlo por cada ciclo
-	gpio_set_direction(EC11_SELECT, GPIO_MODE_INPUT);
+
 	btnbk=gpio_get_level(BACK);
 	btnok=gpio_get_level(EC11_SELECT);
 	pcnt_unit_get_count(pcnt_unit, &opcion);
+	if (set_value){
+		opt_value = opcion/4;
+	}else{
+		opt=opcion/4;
+	}
 
   if ( btnok == 0 || btnbk == 0 || (last_option != opcion))
   {
@@ -416,17 +414,17 @@ void menu_handler(){
   if (menu == true){ 
   	if (set_value){
   		switch(opt){
-  			case 1:
+  			case 0:
   				ESP_LOGE(TAG,"SetOpcion 1");
   				valor2=opt_value;
   			break;
-  			case 2:
+  			case 1:
   				ESP_LOGE(TAG,"SetOpcion 2");
   			break;
-  			case 3:
+  			case 2:
   				ESP_LOGE(TAG,"SetOpcion 3");
   			break;
-  			case 4:
+  			case 3:
   				ESP_LOGE(TAG,"SetOpcion 4");
   			break;
   			default:
@@ -449,19 +447,19 @@ void menu_handler(){
   		}
   		if (btnok == 0){
   			switch(opt){
-  			case 1:
+  			case 0:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 1");
   			break;
-  			case 2:
+  			case 1:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 2");
   			break;
-  			case 3:
+  			case 2:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 3");
   			break;
-  			case 4:
+  			case 3:
   				set_value = true;
   				ESP_LOGE(TAG,"estado 4");
   			break;
@@ -475,7 +473,7 @@ void menu_handler(){
   }else{ //
   	//Activa el menu
   	if (btnok == 0){
-  		opt = 1;
+  		pcnt_unit_clear_count(pcnt_unit);
   		menu = true;
   		btnok = 1;
   	}
@@ -506,7 +504,7 @@ void update_screen(TFT_t * dev,FontxFile *fx){
 	uint8_t ascii[20];
 	if (menu && set_value == false){
 		lcdFillScreen(dev, BLACK);
-		lcdDrawRect(dev, 200-opt*30, 10, 225-opt*30, 300, YELLOW);
+		lcdDrawRect(dev, 170-opt*30, 10, 195-opt*30, 300, YELLOW);
 		lcdDrawString(dev, fx, 200, 12, (uint8_t *)"   CONFIGURACIONES", WHITE);
 		lcdDrawString(dev, fx, 170, 12, (uint8_t *)"1. Agregar R", WHITE);
 		lcdDrawString(dev, fx, 140, 12, (uint8_t *)"2. Agregar diametro", WHITE);
@@ -515,24 +513,24 @@ void update_screen(TFT_t * dev,FontxFile *fx){
 	}
 		if (set_value){
 			switch(opt){
-				case 1:
+				case 0:
 					lcdFillScreen(dev, BLACK);
-					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 1", WHITE);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"Valor de resistencia", WHITE);
 					sprintf((char *)ascii, "value: %d", valor2);
-					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
+					lcdDrawString(dev, fx, 100, 50, ascii, WHITE);
 				break;
-				case 2:
+				case 1:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 2", WHITE);
 					sprintf((char *)ascii, "value: %d", opt);
 					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
 
 				break;
-				case 3:
+				case 2:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 3", WHITE);
 				break;
-				case 4:
+				case 3:
 					lcdFillScreen(dev, BLACK);
 					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 4", WHITE);
 				break;
