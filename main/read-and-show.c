@@ -65,8 +65,47 @@ void adc_task(void *pvParameters);
 #define PCNT_HIGH_LIMIT 100
 #define PCNT_LOW_LIMIT  -1
 int opcion=0;
+int up=0;
 pcnt_unit_handle_t pcnt_unit = NULL;
 void pcnt_init_task(void *pvParameters);
+
+
+void draw_grid(TFT_t * dev);
+void draw_sin(TFT_t * dev);
+void batt_status(TFT_t * dev, FontxFile *fx);
+
+//MENU
+void menu_handler();
+bool updating_screen = false;
+bool new_data = false;
+bool menu_action = false;
+bool menu = false;
+bool info = true;
+bool set_value  = false;
+int btnok,btnbk;
+uint8_t last_option=0;
+int valor2=0;
+enum Option {
+  None,
+  Autoscale,
+  Vdiv,
+  Sdiv,
+  Offset,
+  TOffset,
+  Filter,
+  Stop,
+  Mode,
+  Single,
+  Clear,
+  Reset,
+  Probe,
+  UpdateF,
+  Cursor1,
+  Cursor2
+};
+uint8_t opt = Autoscale;
+uint8_t opt_value = None;
+void update_screen(TFT_t * dev,FontxFile *fx);
 
 
 
@@ -94,6 +133,7 @@ void app_main(void){
 	ret = mountSPIFFS("/images","storage2", 14);
 	if (ret != ESP_OK) return;
 	listSPIFFS("/images/");
+
 	xTaskCreate(adc_task, "BATT_STATUS", 1024, NULL, 1, NULL);
 	xTaskCreate(paint_task, "ILI9341", 1024*8, NULL, 2, NULL);
 	xTaskCreate(pcnt_init_task, "Encoder", 1024*4, NULL, 5, NULL);
@@ -169,7 +209,6 @@ void adc_task(void *pvParameters){
         vTaskDelay(1);
 
     }
-
 }
 
 void pcnt_init_task(void *pvParameters){
@@ -178,38 +217,38 @@ void pcnt_init_task(void *pvParameters){
         .low_limit = PCNT_LOW_LIMIT,
     };
 
-    ESP_ERROR_CHECK(pcnt_new_unit(&unit_config, &pcnt_unit));
+    pcnt_new_unit(&unit_config, &pcnt_unit);
 
     pcnt_glitch_filter_config_t filter_config = {
 	        .max_glitch_ns = 1000,
     };
-    ESP_ERROR_CHECK(pcnt_unit_set_glitch_filter(pcnt_unit, &filter_config));
+    pcnt_unit_set_glitch_filter(pcnt_unit, &filter_config);
 
     pcnt_chan_config_t chan_a_config = {
         .edge_gpio_num = EC11_GPIO_A,
         .level_gpio_num = EC11_GPIO_B,
     };
     pcnt_channel_handle_t pcnt_chan_a = NULL;
-    ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_a_config, &pcnt_chan_a));
+    pcnt_new_channel(pcnt_unit, &chan_a_config, &pcnt_chan_a);
     
     pcnt_chan_config_t chan_b_config = {
         .edge_gpio_num = EC11_GPIO_B,
         .level_gpio_num = EC11_GPIO_A,
     };
     pcnt_channel_handle_t pcnt_chan_b = NULL;
-    ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_b_config, &pcnt_chan_b));
+    pcnt_new_channel(pcnt_unit, &chan_b_config, &pcnt_chan_b);
 
-    ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE));
-    ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
-    ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE));
-    ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
+	pcnt_channel_set_edge_action(pcnt_chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+	pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+	pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+	pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
 
-    ESP_ERROR_CHECK(pcnt_unit_enable(pcnt_unit));
-    ESP_ERROR_CHECK(pcnt_unit_clear_count(pcnt_unit));
-    ESP_ERROR_CHECK(pcnt_unit_start(pcnt_unit));
+    pcnt_unit_enable(pcnt_unit);
+    pcnt_unit_clear_count(pcnt_unit);
+    pcnt_unit_start(pcnt_unit);
 
     while (1) {
-        ESP_ERROR_CHECK(pcnt_unit_get_count(pcnt_unit, &opcion));
+        
         vTaskDelay(1);
     }
 }
@@ -220,8 +259,6 @@ void paint_task(void *pvParameters){
 	InitFontx(fx16G,"/font/ILGH16XB.FNT",""); // 8x16Dot Gothic
 	InitFontx(fx24G,"/font/ILGH24XB.FNT",""); // 12x24Dot Gothic
 	TFT_t dev;
-	int up=0;
-	uint8_t ascii[20];
 
 	spi_master_init(&dev,
 					CONFIG_MOSI_GPIO,
@@ -242,54 +279,28 @@ void paint_task(void *pvParameters){
 	lcdSetFontDirection(&dev, 1);
 	lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"TEST GRAPH", WHITE);
 
-	gpio_set_direction(BACK, GPIO_MODE_INPUT);
-	gpio_get_level(BACK);
 
 
 	while(1){
-
-		lcdFillScreen(&dev, BLACK);
-       	lcdDrawFillRect(&dev, 220, 0, 240, 320, GRAY);
-
-   		sprintf((char *)ascii, "batt:%.2f%%", (float)(voltage[0][0]/500.0)*(100/3.7));
-   		lcdDrawString(&dev, fx16G, 220, 10, ascii, WHITE);
-
-		lcdDrawLine(&dev, 110,0, 110, 320, RED);
-		if (gpio_get_level(BACK)==0)
-		{
-			lcdFillScreen(&dev, BLACK);
-			lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"Cambiando señal", WHITE);
-			
-			if (up==0)
-			{
-				up=1;
-			}else{
-				up=0;
-			}
-		}
-
-		if (up==1)
-		{
-			for (int i = 0; i < BUFF_SIZE; ++i)
-			{
-				signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
-			}
+		menu_handler();
+		if (set_value){
+			opt_value = opcion/4;
 		}else{
-			for (int i = 0; i < BUFF_SIZE; i++) {
-        		signal_test[i] = 110+70*cos(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
-    		}
+			opt=opcion/4;
 		}
 
+		//ESP_LOGW(TAG,"opcion: %d", opt);
+		if (new_data || menu_action) {
+      		new_data = false;
+      		menu_action = false;
+      		updating_screen = true;
+      		update_screen(&dev,fx24G);
+      		updating_screen = false;
+      		vTaskDelay(pdMS_TO_TICKS(10));
+    	}
 
-		for (int i = 1; i < BUFF_SIZE; ++i)
-		{
-			lcdDrawLine(&dev, signal_test[i-1],i-1, signal_test[i], i, CYAN);
-		}
-		if (up>=1000)
-		{
-			up=10;
-		}
-		vTaskDelay(10);
+
+		vTaskDelay(pdMS_TO_TICKS(10));
 	}
 }
 
@@ -343,4 +354,190 @@ static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel,
     }
 
     return calibrated;
+}
+void draw_grid(TFT_t * dev) {
+
+  for (int i = 0; i < 28; i++) {
+ 
+  	lcdDrawPixel(dev, i * 10, 40, WHITE);
+    lcdDrawPixel(dev, i * 10, 80, WHITE);
+    lcdDrawPixel(dev, i * 10, 120, WHITE);
+    lcdDrawPixel(dev, i * 10, 160, WHITE);
+    lcdDrawPixel(dev, i * 10, 200, WHITE);
+    lcdDrawPixel(dev, i * 10, 240, WHITE);
+    lcdDrawPixel(dev, i * 10, 280, WHITE);
+
+  }
+  for (int i = 0; i < 320; i += 10) {
+    for (int j = 0; j < 240; j += 40) {
+    	lcdDrawPixel(dev, j, i, WHITE);
+    }
+  }
+}
+
+void draw_sin(TFT_t * dev){
+
+	for (int i = 0; i < BUFF_SIZE; ++i)
+	{
+		signal_test[i]=110+70*sin(2*M_PI*i*(FRECUENCY+opcion*10)/SAMPLE_RATE);
+	}
+
+	for (int i = 1; i < BUFF_SIZE; ++i)
+	{
+		lcdDrawLine(dev, signal_test[i-1],i-1, signal_test[i], i, CYAN);
+	}
+	if (up>=1000)
+	{
+		up=10;
+	}
+}
+
+void batt_status(TFT_t * dev, FontxFile *fx){
+	uint8_t ascii[20];
+	
+	lcdDrawFillRect(dev, 220, 0, 240, 320, GRAY);
+	sprintf((char *)ascii, "batt:%.2f%%", (float)(voltage[0][0]/500.0)*(100/3.7));
+	lcdDrawString(dev, fx, 220, 10, ascii, WHITE);
+}
+
+void menu_handler(){
+	gpio_set_direction(BACK, GPIO_MODE_INPUT); //corregir esto para no configurarlo por cada ciclo
+	gpio_set_direction(EC11_SELECT, GPIO_MODE_INPUT);
+	btnbk=gpio_get_level(BACK);
+	btnok=gpio_get_level(EC11_SELECT);
+	pcnt_unit_get_count(pcnt_unit, &opcion);
+
+  if ( btnok == 0 || btnbk == 0 || (last_option != opcion))
+  {
+    menu_action = true;
+  }
+	last_option = opcion;
+
+  if (menu == true){ 
+  	if (set_value){
+  		switch(opt){
+  			case 1:
+  				ESP_LOGE(TAG,"SetOpcion 1");
+  				valor2=opt_value;
+  			break;
+  			case 2:
+  				ESP_LOGE(TAG,"SetOpcion 2");
+  			break;
+  			case 3:
+  				ESP_LOGE(TAG,"SetOpcion 3");
+  			break;
+  			case 4:
+  				ESP_LOGE(TAG,"SetOpcion 4");
+  			break;
+  			default:
+  			break;
+  		}
+
+  		if (btnbk == 0){
+        	set_value = 0;
+        	pcnt_unit_clear_count(pcnt_unit);
+        	btnbk = 1;
+      	}
+  		
+  	}else{
+  		//Desactiva el menu
+  		if (btnbk == 0){
+  			menu = false;
+  			ESP_LOGI(TAG,"disable menu");
+  			pcnt_unit_clear_count(pcnt_unit);
+  			btnbk = 1;
+  		}
+  		if (btnok == 0){
+  			switch(opt){
+  			case 1:
+  				set_value = true;
+  				ESP_LOGE(TAG,"estado 1");
+  			break;
+  			case 2:
+  				set_value = true;
+  				ESP_LOGE(TAG,"estado 2");
+  			break;
+  			case 3:
+  				set_value = true;
+  				ESP_LOGE(TAG,"estado 3");
+  			break;
+  			case 4:
+  				set_value = true;
+  				ESP_LOGE(TAG,"estado 4");
+  			break;
+  			default:
+  			break;
+  			}
+  			btnok=1;
+  		}
+  	}
+  
+  }else{ //
+  	//Activa el menu
+  	if (btnok == 0){
+  		opt = 1;
+  		menu = true;
+  		btnok = 1;
+  	}
+  	//No estoy seguro que hace esto
+  	if (btnbk == 0){
+  		if (info == true){
+  			menu = false;
+  			info = false;
+			pcnt_unit_clear_count(pcnt_unit);
+  		}else{
+  			info = true;
+  		}
+  		btnbk = 1;
+  	}
+  }
+}
+
+void update_screen(TFT_t * dev,FontxFile *fx){
+
+	if (!menu){
+		lcdFillScreen(dev, BLACK);
+		draw_grid(dev);
+   		lcdDrawLine(dev, 110,0, 110, 320, RED);
+   		//batt_status(dev,fx);
+		draw_sin(dev);
+	}
+
+	uint8_t ascii[20];
+	if (menu && set_value == false){
+		lcdFillScreen(dev, BLACK);
+		lcdDrawRect(dev, 200-opt*30, 10, 225-opt*30, 300, YELLOW);
+		lcdDrawString(dev, fx, 200, 12, (uint8_t *)"   CONFIGURACIONES", WHITE);
+		lcdDrawString(dev, fx, 170, 12, (uint8_t *)"1. Agregar R", WHITE);
+		lcdDrawString(dev, fx, 140, 12, (uint8_t *)"2. Agregar diametro", WHITE);
+		lcdDrawString(dev, fx, 110, 12, (uint8_t *)"3. Agregar peso", WHITE);
+		lcdDrawString(dev, fx, 80, 12,  (uint8_t *)"4. Agregar Potencia", WHITE);
+	}
+		if (set_value){
+			switch(opt){
+				case 1:
+					lcdFillScreen(dev, BLACK);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 1", WHITE);
+					sprintf((char *)ascii, "value: %d", valor2);
+					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
+				break;
+				case 2:
+					lcdFillScreen(dev, BLACK);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 2", WHITE);
+					sprintf((char *)ascii, "value: %d", opt);
+					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
+
+				break;
+				case 3:
+					lcdFillScreen(dev, BLACK);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 3", WHITE);
+				break;
+				case 4:
+					lcdFillScreen(dev, BLACK);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 4", WHITE);
+				break;
+			}
+
+		}
+	
 }
