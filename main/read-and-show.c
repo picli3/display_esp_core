@@ -103,7 +103,7 @@ enum Option {
   Cursor1,
   Cursor2
 };
-uint8_t opt = Autoscale;
+uint8_t opt = None;
 uint8_t opt_value = None;
 void update_screen(TFT_t * dev,FontxFile *fx);
 
@@ -278,17 +278,12 @@ void paint_task(void *pvParameters){
 	lcdFillScreen(&dev, BLACK);
 	lcdSetFontDirection(&dev, 1);
 	lcdDrawString(&dev, fx24G, 210, 100, (uint8_t *)"TEST GRAPH", WHITE);
-
+	gpio_set_direction(BACK, GPIO_MODE_INPUT); //corregir esto para no configurarlo por cada ciclo
+	gpio_set_direction(EC11_SELECT, GPIO_MODE_INPUT);
 
 
 	while(1){
 		menu_handler();
-		if (set_value){
-			opt_value = opcion/4;
-		}else{
-			opt=opcion/4;
-		}
-
 		//ESP_LOGW(TAG,"opcion: %d", opt);
 		if (new_data || menu_action) {
       		new_data = false;
@@ -394,18 +389,21 @@ void draw_sin(TFT_t * dev){
 
 void batt_status(TFT_t * dev, FontxFile *fx){
 	uint8_t ascii[20];
-	
 	lcdDrawFillRect(dev, 220, 0, 240, 320, GRAY);
 	sprintf((char *)ascii, "batt:%.2f%%", (float)(voltage[0][0]/500.0)*(100/3.7));
 	lcdDrawString(dev, fx, 220, 10, ascii, WHITE);
 }
 
 void menu_handler(){
-	gpio_set_direction(BACK, GPIO_MODE_INPUT); //corregir esto para no configurarlo por cada ciclo
-	gpio_set_direction(EC11_SELECT, GPIO_MODE_INPUT);
+
 	btnbk=gpio_get_level(BACK);
 	btnok=gpio_get_level(EC11_SELECT);
 	pcnt_unit_get_count(pcnt_unit, &opcion);
+	if (set_value){
+		opt_value = opcion/4;
+	}else{
+		opt=opcion/4;
+	}
 
   if ( btnok == 0 || btnbk == 0 || (last_option != opcion))
   {
@@ -475,7 +473,7 @@ void menu_handler(){
   }else{ //
   	//Activa el menu
   	if (btnok == 0){
-  		opt = 1;
+  		pcnt_unit_clear_count(pcnt_unit);
   		menu = true;
   		btnok = 1;
   	}
@@ -517,9 +515,9 @@ void update_screen(TFT_t * dev,FontxFile *fx){
 			switch(opt){
 				case 0:
 					lcdFillScreen(dev, BLACK);
-					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"cambiando 1", WHITE);
+					lcdDrawString(dev, fx, 200, 12, (uint8_t *)"Valor de resistencia", WHITE);
 					sprintf((char *)ascii, "value: %d", valor2);
-					lcdDrawString(dev, fx, 180, 12, ascii, WHITE);
+					lcdDrawString(dev, fx, 100, 50, ascii, WHITE);
 				break;
 				case 1:
 					lcdFillScreen(dev, BLACK);
