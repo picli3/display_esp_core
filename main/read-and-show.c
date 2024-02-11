@@ -61,7 +61,7 @@ void adc_task(void *pvParameters);
 // Encoder Rotary
 #define EC11_GPIO_A 34
 #define EC11_GPIO_B 35
-#define EC11_SELECT 12
+#define EC11_SELECT 25
 #define PCNT_HIGH_LIMIT 100
 #define PCNT_LOW_LIMIT  -1
 int opcion=0;
