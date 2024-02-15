@@ -27,6 +27,7 @@
 #include "driver/pulse_cnt.h"
 
 #include "esp_dsp.h"
+#include "i2s_driver.h"
 
 static const char *TAG = "MRTS";
 
@@ -112,6 +113,7 @@ void update_screen(TFT_t * dev,FontxFile *fx);
 esp_err_t mountSPIFFS(char * path, char * label, int max_files);
 static void listSPIFFS(char * path);
 void paint_task(void *pvParameters);
+void i2s_read_task();
 
 void app_main(void){
 
@@ -134,9 +136,59 @@ void app_main(void){
 	if (ret != ESP_OK) return;
 	listSPIFFS("/images/");
 
+	i2s_configure_channel();
+
 	xTaskCreate(adc_task, "BATT_STATUS", 1024, NULL, 1, NULL);
 	xTaskCreate(paint_task, "ILI9341", 1024*8, NULL, 2, NULL);
-	xTaskCreate(pcnt_init_task, "Encoder", 1024*4, NULL, 5, NULL);
+	xTaskCreate(pcnt_init_task, "Encoder", 1024*4, NULL, 2, NULL);
+	xTaskCreate(i2s_read_task, "read", 1024*8, NULL, 5, NULL);
+}
+
+void i2s_read_task(){
+
+	int NUMERO_BUSES = 2;
+
+	uint16_t* nuevoBus = (uint16_t*)malloc(BUFF_SIZE_I2S * NUMERO_BUSES * 2);
+
+	//uint16_t* raw_data = i2s_raw();
+
+	//i2s_read();
+
+	
+	for (int i = 0; i < NUMERO_BUSES; ++i){
+		uint16_t* raw_data = i2s_raw();
+		memcpy(nuevoBus + i * BUFF_SIZE_I2S, raw_data,BUFF_SIZE_I2S*2 );
+	}
+	
+	for (int16_t i = 0; i < (BUFF_SIZE_I2S * NUMERO_BUSES)/2; i++)
+	{
+		printf("%d,%d\n",nuevoBus[i*2+1],nuevoBus[i*2+2]);
+	}
+
+
+	/*for (int16_t i = 0; i < (BUFF_SIZE_I2S * NUMERO_BUSES)/4; i+=2) {
+		if (nuevoBus[i*2+1] & 0x8000) { // Comprueba el bit más significativo para determinar si es negativo
+			chan_1[i/2]=(int16_t)(nuevoBus[i*2+1] | 0xFFFF0000);
+		} else {
+			chan_1[i/2]=(int16_t)nuevoBus[i*2+1];
+		}
+		if (nuevoBus[i*2+3] & 0x8000) { // Comprueba el bit más significativo para determinar si es negativo
+			chan_2[i/2]=(int16_t)(nuevoBus[i*2+3] | 0xFFFF0000);
+		} else {
+			chan_2[i/2]=(int16_t)nuevoBus[i*2+3];
+		}
+		printf("%d\n",chan_1[i/2]);
+ 	}*/
+
+
+
+       
+
+
+	while(1){
+
+		vTaskDelay(10);
+	}
 }
 
 esp_err_t mountSPIFFS(char * path, char * label, int max_files) {
