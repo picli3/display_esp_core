@@ -7,6 +7,8 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(read-and-show)
 
+set(EXTRA_COMPONENT_DIRS components/cJSON)
+
 spiffs_create_partition_image(storage0 font FLASH_IN_PROJECT)
 spiffs_create_partition_image(storage1 waves FLASH_IN_PROJECT)
 spiffs_create_partition_image(storage2 images FLASH_IN_PROJECT)
